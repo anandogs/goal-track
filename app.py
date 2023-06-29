@@ -2,8 +2,8 @@ from flask import Flask, render_template, request, redirect, session
 from flask_sqlalchemy import SQLAlchemy
 import openai
 import os
-import random
 import track
+from flask_limiter import Limiter
 
 openai.api_key = os.getenv('OPEN_AI_KEY')
 
@@ -11,6 +11,15 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')  # SQLite database file
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')  # Set a secret key for session management
 db = SQLAlchemy(app)
+
+def get_ipaddr():
+    return request.remote_addr
+
+limiter = Limiter(app=app, key_func=get_ipaddr)
+
+
+
+
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -42,6 +51,7 @@ def login():
     return render_template('login.html')
 
 @app.route('/', methods=['GET', 'POST'])
+@limiter.limit("10/minute")  # Add this line to limit calls to 10 per minute per IP
 def tasks():
     if 'email' not in session or 'password' not in session:
         return redirect('/login')
@@ -127,6 +137,11 @@ def logout():
     # Clear the session data to log out the user
     session.clear()
     return redirect('/login')
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return render_template('429.html', error_message="Too many requests. Please try again later."), 429
+
 
 if __name__ == '__main__':
     app.run(debug=True)
