@@ -2,6 +2,28 @@ from flask import Flask, render_template, request, redirect, session
 from flask_sqlalchemy import SQLAlchemy
 import track
 import os
+import openai
+import random
+
+openai.api_key = os.getenv('OPEN_AI_KEY')
+
+haiku_templates = {
+    100: ["All tasks complete",
+          "You've conquered every challenge",
+          "Victory is yours"],
+    75: ["Almost there now",
+         "Just a few more tasks remain",
+         "Success is so close"],
+    50: ["Halfway through the list",
+         "Keep going, don't lose focus",
+         "Accomplishment awaits"],
+    25: ["Many tasks ahead",
+         "Stay strong, don't give up now",
+         "Triumph will be yours"],
+    0: ["New challenges arise",
+        "Embrace them with open heart",
+        "Growth lies in each one"]
+}
 
 
 app = Flask(__name__)
@@ -90,12 +112,30 @@ def tasks():
 
     total_tasks = len(descriptions)
 
+    completion_percentage = completed_tasks / total_tasks * 100
+    haiku_template = haiku_templates.get(int(completion_percentage), ["Incomplete tasks",
+                                                                      "Challenges await you",
+                                                                      "Embrace the journey"])
+    witty_haiku = [line.capitalize() for line in haiku_template]
+
+    # Generate witty haiku using OpenAI API
+    prompt = "\n".join(witty_haiku)
+    response = openai.Completion.create(
+        engine='text-davinci-003',
+        prompt=prompt,
+        max_tokens=30,
+        n=1,
+        stop=None,
+        temperature=0.8
+    )
+    witty_haiku.append(response.choices[0].text.strip())
+
     if completed_tasks == total_tasks:
         status = '\U0001F389'  # Celebration emoji
     else:
         status = f'{completed_tasks}/{total_tasks}'
 
-    return render_template('index.html', tasks=tasks, status=status)
+    return render_template('index.html', tasks=tasks, witty_haiku=witty_haiku, status=status)
 
 @app.route('/delete/<int:task_id>', methods=['POST'])
 def delete_task(task_id):
