@@ -1,3 +1,3 @@
-web: pipenv run gunicorn rocky-waters-01104:app
+web: pipenv run gunicorn app:app
 
 
