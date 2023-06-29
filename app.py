@@ -1,30 +1,11 @@
 from flask import Flask, render_template, request, redirect, session
 from flask_sqlalchemy import SQLAlchemy
-import track
-import os
 import openai
+import os
 import random
+import track
 
 openai.api_key = os.getenv('OPEN_AI_KEY')
-
-haiku_templates = {
-    100: ["All tasks complete",
-          "You've conquered every challenge",
-          "Victory is yours"],
-    75: ["Almost there now",
-         "Just a few more tasks remain",
-         "Success is so close"],
-    50: ["Halfway through the list",
-         "Keep going, don't lose focus",
-         "Accomplishment awaits"],
-    25: ["Many tasks ahead",
-         "Stay strong, don't give up now",
-         "Triumph will be yours"],
-    0: ["New challenges arise",
-        "Embrace them with open heart",
-        "Growth lies in each one"]
-}
-
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')  # SQLite database file
@@ -113,13 +94,9 @@ def tasks():
     total_tasks = len(descriptions)
 
     completion_percentage = completed_tasks / total_tasks * 100
-    haiku_template = haiku_templates.get(int(completion_percentage), ["Incomplete tasks",
-                                                                      "Challenges await you",
-                                                                      "Embrace the journey"])
-    witty_haiku = [line.capitalize() for line in haiku_template]
 
-    # Generate witty haiku using OpenAI API
-    prompt = "\n".join(witty_haiku)
+    # Construct the haiku prompt based on completion percentage
+    prompt = f"Witty haiku for someone who has completed {completion_percentage}% of their tasks:"
     response = openai.Completion.create(
         engine='text-davinci-003',
         prompt=prompt,
@@ -128,7 +105,7 @@ def tasks():
         stop=None,
         temperature=0.8
     )
-    witty_haiku.append(response.choices[0].text.strip())
+    witty_haiku = response.choices[0].text.strip().capitalize()
 
     if completed_tasks == total_tasks:
         status = '\U0001F389'  # Celebration emoji
