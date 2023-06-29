@@ -103,7 +103,10 @@ def tasks():
 
     total_tasks = len(descriptions)
 
-    completion_percentage = completed_tasks / total_tasks * 100
+    if total_tasks > 0:
+        completion_percentage = completed_tasks / total_tasks * 100
+    else:
+        completion_percentage = 0
 
     # Construct the haiku prompt based on completion percentage
     prompt = f"Witty haiku for someone who has completed {completion_percentage}% of their tasks:"

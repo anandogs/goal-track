@@ -43,7 +43,7 @@
                         </div>
                     </div>
                 </form>
-
+                {% if tasks %}
                 <table class="table mt-4">
                     <thead>
                         <tr>
@@ -66,6 +66,11 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                {% else %}
+                <div class="alert alert-info mt-4">
+                    You don't have any tasks yet. Please add a task to get started.
+                </div>
+                {% endif %}
             </div>
         </div>
 
