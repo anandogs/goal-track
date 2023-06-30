@@ -39,7 +39,7 @@
         </div>
         <div class="card-body">
           <form action="/" method="post">
-            <div class="form-row">
+            <div class="row">
               <div class="col">
                 <input
                   type="text"
@@ -63,20 +63,23 @@
               </div>
             </div>
           </form>
+          <hr />
           {% if tasks %}
           <table class="table mt-4">
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Duration (minutes)</th>
+                <th>Time Left (minutes)</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {% for task in tasks %}
               <tr>
-                <td {% if task.completed %}class="completed-task"{% endif %}>{{ task.name }}</td>
-                <td>{{ task.duration }}</td>
+                <td {% if task.completed %}class="completed-task" {% endif %}>
+                  {{ task.name }}
+                </td>
+                <td {% if task.completed %}class="completed-task" {% endif %}>{{ task.duration }}</td>
                 <td>
                   <form action="/delete/{{ task.id }}" method="post">
                     <button type="submit" class="btn btn-danger btn-sm">
@@ -95,13 +98,22 @@
           {% endif %}
         </div>
       </div>
-
-      <h1 class="mt-4 haiku-container">{{ status }}</h1>
-
-      <div class="haiku-container">
-        {% if witty_haiku %}
-        <p>{{ witty_haiku }}</p>
+      <div class="row mt-4">
+        {% if random_image_url %}
+        <div class="col">
+          <img
+            src="{{ random_image_url }}"
+            alt="Random Image"
+            style="max-width: 500px; max-height: 500px;"
+          />
+        </div>
         {% endif %}
+        <div class="haiku-container col">
+          <h1 class="mt-4">{{ status }}</h1>
+          {% if witty_haiku %}
+          <p>{{ witty_haiku }}</p>
+          {% endif %}
+        </div>
       </div>
     </div>
 

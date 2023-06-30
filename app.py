@@ -5,7 +5,7 @@ import os
 import track
 from flask_limiter import Limiter
 from flask_migrate import Migrate
-
+import random
 
 openai.api_key = os.getenv('OPEN_AI_KEY')
 
@@ -90,27 +90,47 @@ def tasks():
     tasks = Task.query.filter_by(email=email).all()
     # tasks = Task.query.all()
     descriptions = {}
+
+    class Description:
+        def __init__(self, id=0, name="", duration=0, completed=False):
+            self.id = id
+            self.name = name
+            self.duration = duration
+            self.completed = completed
+
     for task in tasks:
-        descriptions[task.name] = task.duration * 60
+        descriptions[task.name] = Description(task.id, task.name, task.duration, False)
     completed_tasks = 0
     total_tasks = len(descriptions)
     
     for entry in all_time_entries:
         if entry['description'] in descriptions:
-            descriptions[entry['description']] -= entry['duration']
-            if descriptions[entry['description']] <= 0:
+            descriptions[entry['description']].id = entry['id']
+            descriptions[entry['description']].duration = descriptions[entry['description']].duration * 60 - entry['duration']
+            if descriptions[entry['description']].duration <= 0:
                 completed_tasks += 1
-                task.completed = True
-                descriptions[entry['description']] = 0
-            else:
-                task.completed = False
-
+                descriptions[entry['description']].completed = True
+                descriptions[entry['description']].duration = 0
+                
     total_tasks = len(descriptions)
 
     if total_tasks > 0:
         completion_percentage = completed_tasks / total_tasks * 100
     else:
         completion_percentage = 0
+
+    description_list = list(descriptions.values())
+
+    image_urls = [
+        "https://s.wsj.net/public/resources/images/BN-XC577_0122GO_SOC_20180122114320.jpg",
+        "https://i.pinimg.com/originals/53/9c/86/539c86b2409c6b00c371f4b36b00a73a.jpg",
+        "https://i.pinimg.com/736x/d8/66/cb/d866cbebe104951a436e76de36882d84.jpg",
+        "https://images.news18.com/ibnlive/uploads/2018/01/pigeon.png",
+        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSm9ThoWdcvvBdaGpbSMpwIXxxq4EyWskYCgQ&usqp=CAU"
+    ]
+
+    random_image_url = random.choice(image_urls)
+
 
     # Construct the haiku prompt based on completion percentage
     prompt = f"Witty haiku for someone who has completed {completion_percentage}% of their tasks:"
@@ -129,7 +149,7 @@ def tasks():
     else:
         status = f'{completed_tasks}/{total_tasks}'
 
-    return render_template('index.html', tasks=tasks, witty_haiku=witty_haiku, status=status)
+    return render_template('index.html', tasks=description_list, witty_haiku=witty_haiku, status=status, random_image_url=random_image_url)
 
 @app.route('/delete/<int:task_id>', methods=['POST'])
 def delete_task(task_id):
