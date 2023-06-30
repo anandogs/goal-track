@@ -4,6 +4,8 @@ import openai
 import os
 import track
 from flask_limiter import Limiter
+from flask_migrate import Migrate
+
 
 openai.api_key = os.getenv('OPEN_AI_KEY')
 
@@ -18,16 +20,14 @@ def get_ipaddr():
 limiter = Limiter(app=app, key_func=get_ipaddr)
 
 
-
-
-
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     duration = db.Column(db.Integer, nullable=False)
+    email = db.Column(db.String(100), nullable=False)
 
-with app.app_context():
-    db.create_all()
+migrate = Migrate(app, db)
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -80,14 +80,15 @@ def tasks():
 
         task = Task.query.filter_by(name=task_name).first()
         if not task:
-            task = Task(name=task_name, duration=task_duration)
+            task = Task(name=task_name, duration=task_duration, email=email)
             db.session.add(task)
             db.session.commit()
         return redirect('/')
 
     # Get tasks from Track
     all_time_entries = track.get_time_entries(email, password)
-    tasks = Task.query.all()
+    tasks = Task.query.filter_by(email=email).all()
+    # tasks = Task.query.all()
     descriptions = {}
     for task in tasks:
         descriptions[task.name] = task.duration * 60
@@ -99,7 +100,10 @@ def tasks():
             descriptions[entry['description']] -= entry['duration']
             if descriptions[entry['description']] <= 0:
                 completed_tasks += 1
+                task.completed = True
                 descriptions[entry['description']] = 0
+            else:
+                task.completed = False
 
     total_tasks = len(descriptions)
 

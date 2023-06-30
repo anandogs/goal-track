@@ -12,6 +12,8 @@ requests = "*"
 gunicorn = "*"
 openai = "*"
 flask-limiter = "*"
+flask-migrate = "*"
+pytz = "*"
 
 [dev-packages]
 
