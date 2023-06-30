@@ -134,7 +134,7 @@ def tasks():
 
 
     # Construct the haiku prompt based on completion percentage
-    prompt = f"Witty haiku for someone who has completed {completion_percentage}% of their tasks written by a shame monster:"
+    prompt = f"Witty haiku for someone who has completed {completion_percentage}% of their tasks written by a shame monster from the netflix show human resources:"
     response = openai.Completion.create(
         engine='text-davinci-003',
         prompt=prompt,
