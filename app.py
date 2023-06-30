@@ -28,6 +28,7 @@ class Task(db.Model):
 
 migrate = Migrate(app, db)
 
+ALLOWED_EMAILS = [email.strip() for email in os.getenv('ALLOWED_EMAILS').split(',')]
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
