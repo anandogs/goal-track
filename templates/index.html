@@ -10,6 +10,10 @@
       integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
       crossorigin="anonymous"
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bungee+Spice&display=swap" rel="stylesheet">
+
     <style>
       .logout-btn {
         display: flex;
@@ -25,13 +29,22 @@
       .completed-task {
         text-decoration: line-through;
       }
+      .title {
+            font-family: 'Bungee Spice', cursive;
+        }
     </style>
   </head>
   <body>
     <div class="container mt-4">
-      <form action="/logout" method="post" class="logout-btn">
-        <button type="submit" class="btn btn-secondary">Logout</button>
-      </form>
+      <div class="row">
+        <h1 class="title col">Your Daily Dose of Shame</h1>
+
+        <form action="/logout" method="post" class="logout-btn col">
+          <button type="submit" class="btn btn-secondary">Logout</button>
+        </form>
+  
+      </div>
+  
 
       <div class="card mt-4">
         <div class="card-header">
