@@ -113,21 +113,22 @@
       </div>
       <div class="row mt-4">
         {% if random_image_url %}
-        <div class="col">
+        <div class="col-sm-12 col-md-6">
           <img
             src="{{ random_image_url }}"
             alt="Random Image"
-            style="max-width: 500px; max-height: 500px;"
+            class="img-fluid"
           />
         </div>
         {% endif %}
-        <div class="haiku-container col">
+        <div class="haiku-container col-sm-12 col-md-6">
           <h1 class="mt-4">{{ status }}</h1>
           {% if witty_haiku %}
           <p>{{ witty_haiku }}</p>
           {% endif %}
         </div>
       </div>
+      
     </div>
 
     <script
