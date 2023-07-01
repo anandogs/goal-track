@@ -241,7 +241,7 @@ def daily_task():
         # Send the email
         mailer.send_mail(email_body, user.email)
 
-scheduler.add_job(daily_task, trigger='cron', minute=25)
+scheduler.add_job(daily_task, trigger='cron', hour=21, minute=30)
 
 
 if __name__ == '__main__':
