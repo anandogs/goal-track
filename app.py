@@ -189,7 +189,8 @@ def ratelimit_handler(e):
     return render_template('429.html', error_message="Too many requests. Please try again later."), 429
 
 def daily_task():
-    all_tasks = Task.query.all()
+    with app.app_context():
+        all_tasks = Task.query.all()
 
     class UserCompletion:
         def __init__(self, total_tasks=0, completed_tasks=0, email_id=""):
@@ -240,7 +241,7 @@ def daily_task():
         # Send the email
         mailer.send_mail(email_body, user.email)
 
-scheduler.add_job(daily_task, trigger='cron', minute=22)
+scheduler.add_job(daily_task, trigger='cron', minute=25)
 
 
 if __name__ == '__main__':
