@@ -6,16 +6,22 @@ import track
 from flask_limiter import Limiter
 from flask_migrate import Migrate
 import random
+from apscheduler.schedulers.background import BackgroundScheduler
+import mailer
 
 openai.api_key = os.getenv('OPEN_AI_KEY')
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')  # SQLite database file
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')  # Set a secret key for session management
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+    'DATABASE_URI')  # SQLite database file
+# Set a secret key for session management
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 db = SQLAlchemy(app)
+
 
 def get_ipaddr():
     return request.remote_addr
+
 
 limiter = Limiter(app=app, key_func=get_ipaddr)
 
@@ -25,38 +31,46 @@ class Task(db.Model):
     name = db.Column(db.String(100), nullable=False)
     duration = db.Column(db.Integer, nullable=False)
     email = db.Column(db.String(100), nullable=False)
+    completed = db.Column(db.Boolean, default=False)
+
 
 migrate = Migrate(app, db)
 
-ALLOWED_EMAILS = [email.strip() for email in os.getenv('ALLOWED_EMAILS').split(',')]
+ALLOWED_EMAILS = [email.strip()
+                  for email in os.getenv('ALLOWED_EMAILS').split(',')]
+
+scheduler = BackgroundScheduler(timezone="Asia/Kolkata")  # Setup scheduler
+scheduler.start()
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
-        
+
         # Call the get_time_entries function with the provided email and password
         time_entries = track.get_time_entries(email, password)
-        
+
         # Check if the result is None, indicating incorrect username or password
         if time_entries is None:
             error_message = 'Incorrect username or password.'
             return render_template('login.html', error_message=error_message)
-        
+
         # Store the user's email and password in session
         session['email'] = email
         session['password'] = password
         return redirect('/')
-    
+
     return render_template('login.html')
 
+
 @app.route('/', methods=['GET', 'POST'])
-@limiter.limit("10/minute")  # Add this line to limit calls to 10 per minute per IP
+# Add this line to limit calls to 10 per minute per IP
+@limiter.limit("10/minute")
 def tasks():
     if 'email' not in session or 'password' not in session:
         return redirect('/login')
-    
+
     # Retrieve the user's email and password from session
     email = session['email']
     password = session['password']
@@ -100,19 +114,21 @@ def tasks():
             self.completed = completed
 
     for task in tasks:
-        descriptions[task.name] = Description(task.id, task.name, task.duration, False)
+        descriptions[task.name] = Description(
+            task.id, task.name, task.duration, False)
     completed_tasks = 0
     total_tasks = len(descriptions)
-    
+
     for entry in all_time_entries:
         if entry['description'] in descriptions:
             descriptions[entry['description']].id = entry['id']
-            descriptions[entry['description']].duration = descriptions[entry['description']].duration * 60 - entry['duration']
+            descriptions[entry['description']].duration = descriptions[entry['description']
+                                                                       ].duration * 60 - entry['duration']
             if descriptions[entry['description']].duration <= 0:
                 completed_tasks += 1
                 descriptions[entry['description']].completed = True
                 descriptions[entry['description']].duration = 0
-                
+
     total_tasks = len(descriptions)
 
     if total_tasks > 0:
@@ -131,7 +147,6 @@ def tasks():
     ]
 
     random_image_url = random.choice(image_urls)
-
 
     # Construct the haiku prompt based on completion percentage
     prompt = f"Witty haiku for someone who has completed {completion_percentage}% of their tasks written by a shame monster from the netflix show human resources:"
@@ -152,6 +167,7 @@ def tasks():
 
     return render_template('index.html', tasks=description_list, witty_haiku=witty_haiku, status=status, random_image_url=random_image_url)
 
+
 @app.route('/delete/<int:task_id>', methods=['POST'])
 def delete_task(task_id):
     task = Task.query.get(task_id)
@@ -160,15 +176,71 @@ def delete_task(task_id):
         db.session.commit()
     return redirect('/')
 
+
 @app.route('/logout', methods=['POST'])
 def logout():
     # Clear the session data to log out the user
     session.clear()
     return redirect('/login')
 
+
 @app.errorhandler(429)
 def ratelimit_handler(e):
     return render_template('429.html', error_message="Too many requests. Please try again later."), 429
+
+def daily_task():
+    all_tasks = Task.query.all()
+
+    class UserCompletion:
+        def __init__(self, total_tasks=0, completed_tasks=0, email_id=""):
+            self.total_tasks = total_tasks
+            self.completed_tasks = completed_tasks
+            self.email = email_id
+            self.complete_tasks = []
+            self.incomplete_tasks = []
+
+    all_users = []
+    
+    for task in all_tasks:
+        task_email = task.email
+
+        if not any(user.email == task_email for user in all_users):
+            all_users.append(UserCompletion(0, 0, task_email))
+
+        if task.completed:
+            for user in all_users:
+                if user.email == task_email:
+                    user.total_tasks += 1
+                    user.completed_tasks += 1
+                    user.complete_tasks.append(task.name)
+        else:
+            for user in all_users:
+                if user.email == task_email:
+                    user.total_tasks += 1
+                    user.incomplete_tasks.append(task.name)
+
+    for user in all_users:
+        completion_percentage = user.completed_tasks / user.total_tasks * 100
+
+        if completion_percentage == 100:
+            prompt = f"As the Shame Monster from Big Mouth, write a satirical message congratulating them on completing these tasks: {', '.join(user.complete_tasks)}. Remember, no salutations are necessary."
+        else:
+            prompt = f"As the Shame Monster from Big Mouth, write a mocking message about the completion of {user.completed_tasks} tasks ({', '.join(user.complete_tasks)}) and the remaining tasks ({', '.join(user.incomplete_tasks)}). No salutations are necessary."
+
+        response = openai.Completion.create(
+            engine='text-davinci-003',
+            prompt=prompt,
+            max_tokens=200,
+            n=1,
+            stop=None,
+            temperature=0.8
+        )
+        email_body = response.choices[0].text.strip().capitalize()
+
+        # Send the email
+        mailer.send_mail(email_body, user.email)
+
+scheduler.add_job(daily_task, trigger='cron', minute=22)
 
 
 if __name__ == '__main__':
