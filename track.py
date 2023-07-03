@@ -32,6 +32,8 @@ def get_time_entries(email, password):
     response = requests.get(URL, headers=headers, params=payload, timeout=5)
 
     if response.status_code == 200:
+        if (len(response.json()) == 0):
+            return None
         for item in response.json():
             start_time_utc = datetime.fromisoformat(item['start'].replace('Z', '+00:00'))
             stop_time_utc = datetime.fromisoformat(item['stop'].replace('Z', '+00:00'))
