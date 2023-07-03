@@ -42,6 +42,7 @@ ALLOWED_EMAILS = [email.strip()
 scheduler = BackgroundScheduler(timezone="Asia/Kolkata")  # Setup scheduler
 scheduler.start()
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -118,16 +119,16 @@ def tasks():
             task.id, task.name, task.duration, False)
     completed_tasks = 0
     total_tasks = len(descriptions)
+    if all_time_entries is not None:
+        for entry in all_time_entries:
+            if entry['description'] in descriptions:
+                descriptions[entry['description']].id = entry['id']
+                descriptions[entry['description']].duration = round((descriptions[entry['description']].duration * 60 - entry['duration']) / 60, 2)
 
-    for entry in all_time_entries:
-        if entry['description'] in descriptions:
-            descriptions[entry['description']].id = entry['id']
-            descriptions[entry['description']].duration = descriptions[entry['description']
-                                                                       ].duration * 60 - entry['duration']
-            if descriptions[entry['description']].duration <= 0:
-                completed_tasks += 1
-                descriptions[entry['description']].completed = True
-                descriptions[entry['description']].duration = 0
+                if descriptions[entry['description']].duration <= 0:
+                    completed_tasks += 1
+                    descriptions[entry['description']].completed = True
+                    descriptions[entry['description']].duration = 0
 
     total_tasks = len(descriptions)
 
@@ -148,7 +149,6 @@ def tasks():
 
     random_image_url = random.choice(image_urls)
 
-    # Construct the haiku prompt based on completion percentage
     prompt = f"Witty haiku for someone who has completed {completion_percentage}% of their tasks written by a shame monster from the netflix show human resources:"
     response = openai.Completion.create(
         engine='text-davinci-003',
@@ -164,7 +164,6 @@ def tasks():
         status = '\U0001F389'  # Celebration emoji
     else:
         status = f'{completed_tasks}/{total_tasks}'
-
     return render_template('index.html', tasks=description_list, witty_haiku=witty_haiku, status=status, random_image_url=random_image_url)
 
 
@@ -172,8 +171,10 @@ def tasks():
 def delete_task(task_id):
     task = Task.query.get(task_id)
     if task:
+        print(task)
         db.session.delete(task)
         db.session.commit()
+    
     return redirect('/')
 
 
@@ -188,6 +189,7 @@ def logout():
 def ratelimit_handler(e):
     return render_template('429.html', error_message="Too many requests. Please try again later."), 429
 
+
 def daily_task():
     with app.app_context():
         all_tasks = Task.query.all()
@@ -201,24 +203,34 @@ def daily_task():
             self.incomplete_tasks = []
 
     all_users = []
-    
+
     for task in all_tasks:
         task_email = task.email
+        task_id = task.id
 
         if not any(user.email == task_email for user in all_users):
             all_users.append(UserCompletion(0, 0, task_email))
+        with app.app_context():
+            if task.completed:
+                task.duration = min(task.duration * 1.1, 60)
+                Task.query.filter_by(id=task_id).update(
+                    {'duration': task.duration})
+                db.session.commit()
+                for user in all_users:
+                    if user.email == task_email:
+                        user.total_tasks += 1
+                        user.completed_tasks += 1
+                        user.complete_tasks.append(task.name)
 
-        if task.completed:
-            for user in all_users:
-                if user.email == task_email:
-                    user.total_tasks += 1
-                    user.completed_tasks += 1
-                    user.complete_tasks.append(task.name)
-        else:
-            for user in all_users:
-                if user.email == task_email:
-                    user.total_tasks += 1
-                    user.incomplete_tasks.append(task.name)
+            else:
+                task.duration = max(task.duration * .9, 5)
+                Task.query.filter_by(id=task_id).update(
+                    {'duration': task.duration})
+                db.session.commit()
+                for user in all_users:
+                    if user.email == task_email:
+                        user.total_tasks += 1
+                        user.incomplete_tasks.append(task.name)
 
     for user in all_users:
         completion_percentage = user.completed_tasks / user.total_tasks * 100
@@ -240,6 +252,7 @@ def daily_task():
 
         # Send the email
         mailer.send_mail(email_body, user.email)
+
 
 scheduler.add_job(daily_task, trigger='cron', hour=21, minute=30)
 
